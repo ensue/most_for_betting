@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "updated_at": null,
+  "notes": "Increment wins/losses and sums when a compliant bet settles (post-review). Monte Carlo reads this file — no manual CLI needed.",
+  "compliant_bets": {
+    "wins": 0,
+    "losses": 0,
+    "sum_net_wins": 0.0,
+    "sum_losses_abs": 0.0
+  },
+  "calibration": {
+    "probability_estimates": [],
+    "outcomes": [],
+    "brier_score": null
+  }
+}

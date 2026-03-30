@@ -1,0 +1,60 @@
+# Journal format — readable logs
+
+Rules for everything under `journal/**` (and AI-written entries). Optimized for **raw editor view** and preview: scannable, no ragged ASCII grids.
+
+## Prefer
+
+### Key–value lines
+
+One fact per line. Use an em dash (—) between label and value (or a colon if you prefer).
+
+**Selection** — Arsenal to win
+**Odds** — 2.10 (Bet365)
+**Edge** — +7.4%
+
+Leave a **blank line** before a new subsection.
+
+### Section cards (indexes, rolling logs)
+
+Use `###` headings as row substitutes. Newest-first is fine.
+
+**Chapter live trajectory** — `Predicted danger (current)` near the top of the narrative block; superseded predictions under `Archived predictions (read-only)` (newest archive entry first in that section). See `system/flow.md` § Chapter management.
+
+### YYYY-MM-DD · EVENT · MARKET
+
+- **Selection:** …
+- **Odds:** …
+- **Result:** W / L
+- **P/L:** +0.9u / -1.0u
+- **Links:** [slip](../slips/…/….png) · [note](….md)
+
+### Checklists
+
+Use task list syntax:
+
+- [ ] Pre-bet pause completed
+- [ ] Edge calculation positive
+- [ ] Stake = 1 unit
+
+### Side-by-side ideas
+
+**Match A** — …
+**Match B** — …
+
+Or two short `##` subsections.
+
+### Options (multiple legs, scenarios)
+
+A small `####` block per option instead of a multi-column table.
+
+## Avoid
+
+- Pipe tables for **two-column field dumps** — use label–value lines.
+- Wide tables with long prose in cells — use bullets under a heading.
+
+## Exceptions
+
+- Workspace `context.md` (or equivalent) may use compact dashboard tables.
+- Rare narrow numeric tables are OK if cards would be worse.
+
+When in doubt, match the latest entry written to this format.
