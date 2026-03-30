@@ -22,6 +22,7 @@ python bookmaker/odds.py --sport soccer_epl                # EPL odds
 python bookmaker/odds.py --sport soccer_epl --event "Arsenal"  # filter by team
 python bookmaker/odds.py --sport soccer_epl --markets h2h,totals  # multiple markets
 python bookmaker/odds.py --remaining                       # check API quota
+python bookmaker/odds.py --sport soccer_epl --recommend --bankroll 100 --max-stake-pct 2
 ```
 
 ### Outputs (`bookmaker/data/`)
@@ -30,6 +31,19 @@ python bookmaker/odds.py --remaining                       # check API quota
 |------|---------|
 | `odds_snapshot.json` | Raw odds data from API |
 | `odds_snapshot.md` | Human-readable odds comparison with overround |
+| `research_recommendation.json` | EV/edge-scored candidate bets + optimal bet |
+| `research_recommendation.md` | Human-readable research report with recommended stake |
+
+### Research + optimal bet recommendation
+
+`--recommend` runs a market-research pass directly from bookmaker prices:
+- Removes overround per bookmaker market
+- Builds consensus fair probabilities from all available books
+- Scores each offered outcome by edge and expected value
+- Calculates capped quarter-Kelly stake sizing
+- Returns a single **optimal bet** plus top candidates
+
+This is an evidence-based recommendation from market data, not a certainty guarantee.
 
 ### CLV (Closing Line Value) tracking
 

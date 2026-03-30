@@ -30,6 +30,7 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from statistics import mean
 
 try:
     import requests
@@ -196,6 +197,171 @@ def find_best_odds(events: list[dict]) -> dict[str, dict]:
     return best
 
 
+def _normalize_probs(outcomes: list[dict]) -> dict[str, float]:
+    implied: dict[str, float] = {}
+    total = 0.0
+    for o in outcomes:
+        price = float(o.get("price", 0) or 0)
+        if price <= 0:
+            continue
+        p = 1.0 / price
+        implied[o.get("name", "?")] = p
+        total += p
+    if total <= 0:
+        return {}
+    return {k: (v / total) for k, v in implied.items()}
+
+
+def _quarter_kelly_fraction(decimal_odds: float, est_prob: float) -> float:
+    """
+    Quarter-Kelly bet fraction of bankroll.
+    est_prob is a decimal probability in [0, 1].
+    """
+    b = decimal_odds - 1.0
+    if b <= 0:
+        return 0.0
+    q = 1.0 - est_prob
+    full_kelly = ((b * est_prob) - q) / b
+    if full_kelly <= 0:
+        return 0.0
+    return full_kelly * 0.25
+
+
+def generate_research_recommendations(
+    events: list[dict],
+    bankroll: float,
+    max_stake_pct: float,
+    min_edge_pct: float,
+) -> list[dict]:
+    """
+    Build recommendations from market consensus:
+    1) Remove bookmaker margin per market (normalize implied probs).
+    2) Average normalized probabilities across bookmakers -> consensus fair probability.
+    3) Score every offered price by EV, edge, and capped quarter-Kelly stake.
+    """
+    scored: list[dict] = []
+
+    for event in events:
+        event_key = f"{event.get('home_team', '?')} vs {event.get('away_team', '?')}"
+        markets_grouped: dict[str, list[dict]] = {}
+
+        for bk in event.get("bookmakers", []):
+            for market in bk.get("markets", []):
+                mk = market.get("key", "?")
+                markets_grouped.setdefault(mk, []).append(
+                    {
+                        "bookmaker": bk.get("title", "?"),
+                        "outcomes": market.get("outcomes", []),
+                    }
+                )
+
+        for market_key, market_books in markets_grouped.items():
+            # Consensus fair probability per selection.
+            fair_prob_samples: dict[str, list[float]] = {}
+            for mb in market_books:
+                normalized = _normalize_probs(mb["outcomes"])
+                for sel, prob in normalized.items():
+                    fair_prob_samples.setdefault(sel, []).append(prob)
+            if not fair_prob_samples:
+                continue
+            fair_probs = {sel: mean(vals) for sel, vals in fair_prob_samples.items() if vals}
+
+            # Score all available offered prices against fair probs.
+            for mb in market_books:
+                bookmaker = mb["bookmaker"]
+                for outcome in mb["outcomes"]:
+                    selection = outcome.get("name", "?")
+                    odds = float(outcome.get("price", 0) or 0)
+                    if odds <= 1:
+                        continue
+                    est_prob = fair_probs.get(selection)
+                    if est_prob is None:
+                        continue
+                    implied_prob = 1.0 / odds
+                    edge_pct = (est_prob - implied_prob) * 100.0
+                    ev_per_unit = (est_prob * (odds - 1.0)) - (1.0 - est_prob)
+                    kelly_q = _quarter_kelly_fraction(odds, est_prob)
+                    kelly_q = min(kelly_q, max_stake_pct / 100.0)
+                    stake_units = bankroll * kelly_q
+
+                    if edge_pct < min_edge_pct or ev_per_unit <= 0:
+                        continue
+
+                    scored.append(
+                        {
+                            "event": event_key,
+                            "market": market_key,
+                            "selection": selection,
+                            "bookmaker": bookmaker,
+                            "odds": odds,
+                            "estimated_probability_pct": round(est_prob * 100.0, 2),
+                            "implied_probability_pct": round(implied_prob * 100.0, 2),
+                            "edge_pct": round(edge_pct, 2),
+                            "ev_per_unit": round(ev_per_unit, 4),
+                            "kelly_quarter_fraction_pct": round(kelly_q * 100.0, 2),
+                            "recommended_stake_units": round(stake_units, 2),
+                        }
+                    )
+
+    scored.sort(key=lambda x: (x["ev_per_unit"], x["edge_pct"], x["odds"]), reverse=True)
+    return scored
+
+
+def generate_research_md(
+    recommendations: list[dict],
+    sport: str,
+    bankroll: float,
+    max_stake_pct: float,
+    min_edge_pct: float,
+) -> str:
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    lines = [
+        "# Market Research and Bet Recommendation",
+        "",
+        f"**Sport:** {sport}  ",
+        f"**Generated:** {ts}  ",
+        f"**Bankroll input:** {bankroll:.2f}u  ",
+        f"**Stake cap:** {max_stake_pct:.2f}% bankroll  ",
+        f"**Min edge filter:** {min_edge_pct:.2f}%",
+        "",
+        "Method: bookmaker-margin-adjusted market consensus probabilities + EV + capped quarter-Kelly sizing.",
+        "",
+    ]
+    if not recommendations:
+        lines.append("No positive-EV bets passed filters.")
+        return "\n".join(lines)
+
+    best = recommendations[0]
+    lines.extend(
+        [
+            "## Optimal Bet (Current Snapshot)",
+            "",
+            f"- **Event:** {best['event']}",
+            f"- **Market:** {best['market']}",
+            f"- **Selection:** {best['selection']}",
+            f"- **Bookmaker:** {best['bookmaker']}",
+            f"- **Odds:** {best['odds']:.2f}",
+            f"- **Estimated probability:** {best['estimated_probability_pct']:.2f}%",
+            f"- **Implied probability:** {best['implied_probability_pct']:.2f}%",
+            f"- **Edge:** {best['edge_pct']:.2f}%",
+            f"- **EV per 1u stake:** {best['ev_per_unit']:+.4f}u",
+            f"- **Recommended stake:** {best['recommended_stake_units']:.2f}u ({best['kelly_quarter_fraction_pct']:.2f}% bankroll)",
+            "",
+            "## Top 10 Positive-EV Candidates",
+            "",
+            "| Event | Market | Selection | Bookmaker | Odds | Est. p | Edge | EV/1u | Stake (u) |",
+            "|-------|--------|-----------|-----------|------|--------|------|-------|-----------|",
+        ]
+    )
+    for r in recommendations[:10]:
+        lines.append(
+            f"| {r['event']} | {r['market']} | {r['selection']} | {r['bookmaker']} | "
+            f"{r['odds']:.2f} | {r['estimated_probability_pct']:.2f}% | {r['edge_pct']:.2f}% | "
+            f"{r['ev_per_unit']:+.4f} | {r['recommended_stake_units']:.2f} |"
+        )
+    return "\n".join(lines)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Odds comparison via The Odds API")
     parser.add_argument("--sport", type=str, default="soccer_epl", help="Sport key (e.g. soccer_epl)")
@@ -204,6 +370,10 @@ def main():
     parser.add_argument("--regions", type=str, default="uk,eu", help="Bookmaker regions (comma-separated)")
     parser.add_argument("--sports", action="store_true", help="List all available sports and exit")
     parser.add_argument("--remaining", action="store_true", help="Show remaining API requests and exit")
+    parser.add_argument("--recommend", action="store_true", help="Run market research and output optimal bet recommendation")
+    parser.add_argument("--bankroll", type=float, default=100.0, help="Bankroll in units for stake sizing")
+    parser.add_argument("--max-stake-pct", type=float, default=2.0, help="Maximum stake as percent of bankroll")
+    parser.add_argument("--min-edge-pct", type=float, default=0.5, help="Minimum edge (percentage points) to include")
     args = parser.parse_args()
 
     api_key = load_api_key()
@@ -262,6 +432,50 @@ def main():
         print(f"\nBest odds across bookmakers:")
         for sel_key, info in sorted(best.items()):
             print(f"  {info['selection']:<25} {info['price']:.2f}  ({info['bookmaker']})")
+
+    if args.recommend:
+        recommendations = generate_research_recommendations(
+            events=events,
+            bankroll=args.bankroll,
+            max_stake_pct=args.max_stake_pct,
+            min_edge_pct=args.min_edge_pct,
+        )
+        research_json = {
+            "sport": args.sport,
+            "generated_utc": datetime.now(timezone.utc).isoformat(),
+            "bankroll": args.bankroll,
+            "max_stake_pct": args.max_stake_pct,
+            "min_edge_pct": args.min_edge_pct,
+            "recommendations": recommendations,
+            "optimal_bet": recommendations[0] if recommendations else None,
+        }
+        research_json_path = DATA_DIR / "research_recommendation.json"
+        research_json_path.write_text(json.dumps(research_json, indent=2), encoding="utf-8")
+
+        research_md = generate_research_md(
+            recommendations=recommendations,
+            sport=args.sport,
+            bankroll=args.bankroll,
+            max_stake_pct=args.max_stake_pct,
+            min_edge_pct=args.min_edge_pct,
+        )
+        research_md_path = DATA_DIR / "research_recommendation.md"
+        research_md_path.write_text(research_md, encoding="utf-8")
+
+        if recommendations:
+            top = recommendations[0]
+            print("\nOptimal bet from current market snapshot:")
+            print(
+                f"  {top['event']} | {top['market']} | {top['selection']} @ {top['odds']:.2f} ({top['bookmaker']})"
+            )
+            print(
+                f"  est p={top['estimated_probability_pct']:.2f}% | edge={top['edge_pct']:.2f}% | "
+                f"EV/1u={top['ev_per_unit']:+.4f} | stake={top['recommended_stake_units']:.2f}u"
+            )
+        else:
+            print("\nNo positive-EV recommendation found for this snapshot and filters.")
+        print(f"Research JSON saved to {research_json_path}")
+        print(f"Research report saved to {research_md_path}")
 
     print(f"\nAPI requests remaining: {remaining}")
     print(f"Snapshot saved to {json_path}")

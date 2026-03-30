@@ -1,8 +1,8 @@
 # MOST — Vibe Betting
 
-**Mental Operating System for Betting** — an AI partner that lives in your IDE for **research, probability estimation, and accountability**.
+**Mental Operating System for Betting** — an AI accountability partner that lives in your IDE.
 
-You bet with your analysis, your bookmaker, your edge. MOST is the layer between your research and your execution: it helps you **structure research**, **compare fair probability to market-implied odds**, **tracks your bets**, **monitors your patterns over time**, and deploys **research-backed psychological tools** at the exact moment your brain tries to override your plan.
+You bet with your analysis, your bookmaker, your edge. MOST is the layer between your research and your execution — it **tracks your bets**, **monitors your patterns over time**, and deploys **research-backed psychological tools** at the exact moment your brain tries to override your plan.
 
 > **Vibe Betting** = data first, opinions when you ask, accountability always.
 
@@ -18,9 +18,7 @@ MOST doesn't try to make you a better analyst. It's built for the gap between kn
 
 ## What MOST Does
 
-**Research & probability** — The workspace is a **research lab**, not only a journal. You (and the AI) gather sources, state uncertainty, and produce **fair probability estimates** (point or range) to compare with **implied probability** from odds. Substantive analysis is logged under `research/` (see `research/TEMPLATE.md`). Outcomes feed **Brier score** and calibration in `journal/bets/_summary.md`.
-
-**Odds comparison** — Fetch live odds from 100+ bookmakers via [The Odds API](https://the-odds-api.com/). Compare prices, find best value, and record closing odds for CLV tracking.
+**Odds comparison + automated market research** — Fetch live odds from 100+ bookmakers via [The Odds API](https://the-odds-api.com/), build consensus fair probabilities, estimate edge/EV, and output an optimal bet with stake sizing.
 
 **Structured plan-and-verify loop** — State your bet plan (selection, odds, stake, probability estimate, edge calculation, thesis). Lock it. Place at the bookmaker. Report back. The AI compares what you placed to what you planned — PASS or MISMATCH. Not approval — verification.
 
@@ -87,8 +85,8 @@ MOST doesn't try to make you a better analyst. It's built for the gap between kn
 ## Quick Start
 
 ```bash
-git clone https://github.com/ensue/most_for_betting.git
-cd most_for_betting
+git clone https://github.com/ensue/prediction-market.git
+cd prediction-market
 pip install -r bookmaker/requirements.txt
 ```
 
@@ -104,6 +102,7 @@ Optional — growth simulation:
 ```bash
 python tools/monte_carlo.py
 python tools/projection.py
+python bookmaker/odds.py --sport soccer_epl --recommend --bankroll 100 --max-stake-pct 2
 ```
 
 See [`SETUP.md`](SETUP.md) for full setup and configuration.
@@ -124,12 +123,10 @@ system/
 bookmaker/
   odds.py                          <- The Odds API -> odds comparison + CLV
   README.md                        <- how to set up odds API access
-research/                          <- structured thesis + fair probability vs market
-  TEMPLATE.md                      <- one format for research notes
 journal/
   bets/                            <- bet plans + outcomes
   chapters/                        <- live trajectory + postmortems
-  reflections/                     <- analysis, notes, implementation intentions
+  reflections/                     <- analysis, research notes, implementation intentions
   mood/                            <- energy / headspace (AI logs implicitly)
   patterns/                        <- behavioral patterns + chain analyses
   slips/                           <- bet slip screenshots
@@ -156,7 +153,7 @@ vault/                             <- API keys (gitignored)
 
 ## Philosophy
 
-MOST is not "AI that picks winners for you." You research. You estimate probabilities. MOST is the layer that **structures that research**, **surfaces edge vs the market**, and is the accountability layer: it remembers your patterns when you forget them, deploys psychological tools when your brain is trying to override your plan, and makes the concrete cost of breaking rules viscerally clear — using your own numbers, your own history, your own words from when you were thinking clearly.
+MOST is not blind tipster hype. It does structured market research and probability estimation from live bookmaker data, then proposes an optimal bet and stake under explicit risk limits. It also remains an accountability layer: it remembers your patterns when you forget them, deploys psychological tools when your brain is trying to override your plan, and makes the concrete cost of breaking rules viscerally clear — using your own numbers, your own history, your own words from when you were thinking clearly.
 
 The vibe: your future self and your AI partner are looking at the same facts. Not the story you half-remember at 1 AM after three losing bets.
 
