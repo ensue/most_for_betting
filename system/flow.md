@@ -20,8 +20,9 @@ Every user message falls into **one or more** of these types. Classify **before*
 | **RULE_BREAK** | Confession, detected violation, chasing language | "I placed one without checking", accumulator cascade, stake escalation |
 | **SYSTEM** | Tool/infra question, rule change, meta-process | "add new tool", "change rule X", "update bankroll" |
 | **EXPLORATION** | Sport analysis, stats question, no bet intent | "how does xG work?", "what's the form for Liverpool?" |
+| **RESEARCH** | Building or reviewing a thesis, fair odds vs market, model comparison | "I'm pricing this match", "compare my % to Pinnacle", "what would change my mind?" |
 
-Multiple types can co-occur (e.g. **BET_RESULT** + **STATE** + **RULE_BREAK**).
+Multiple types can co-occur (e.g. **BET_RESULT** + **STATE** + **RULE_BREAK**, or **BET_IDEA** + **RESEARCH**).
 
 ---
 
@@ -57,6 +58,7 @@ Minimum reads for **every** response that touches betting:
 | Pattern detection or repeat-incident suspicion | `journal/patterns/_summary.md` |
 | Past chapter reference | `journal/chapters/chapter-*-postmortem.md` |
 | Specific past bet reference | The individual `journal/bets/YYYY-MM-DD-*.md` |
+| RESEARCH or substantive BET_IDEA/thesis | `research/_summary.md`, matching `research/YYYY-MM-DD-*.md` if it exists |
 | Implementation intentions needed | `journal/reflections/implementation-intentions.md` |
 
 ### C. Classify risk state
@@ -90,21 +92,22 @@ Each type has a **mandatory output sequence**:
 #### BET_IDEA
 1. Check risk state. If RED → intervention, no sizing.
 2. If event named → run `python bookmaker/odds.py` for current market odds and best available price.
-3. **Edge analysis block** (auto-deliver, do not wait to be asked):
+3. **Research layer:** If the user is building or refining a thesis (stats, team news, historical edge), treat this as **RESEARCH + estimation**: name sources, uncertainty, **fair probability (point or range)**, compare to implied from odds. If substantive (more than a casual lean), create or update `research/YYYY-MM-DD-<slug>.md` from `research/TEMPLATE.md` and add a one-line pointer in `research/_summary.md`.
+4. **Edge analysis block** (auto-deliver, do not wait to be asked):
    - Odds taken (decimal)
    - Implied probability = 1 / decimal_odds × 100
    - User's estimated probability (ask if not stated)
    - Edge = estimated_probability − implied_probability (must be positive for a value bet)
    - Expected value = (probability × (odds−1) × stake) − ((1−probability) × stake)
    - Overround warning if market total implied probability > 105%
-4. **Accumulator detection:** If multiple selections mentioned:
+5. **Accumulator detection:** If multiple selections mentioned:
    - Calculate compounded bookmaker margin across all legs
    - Show expected value of the acca vs equivalent singles
    - State: "Accumulators compound the bookmaker's edge. A 5-leg acca at ~4.5% margin per leg gives the bookmaker ~20-25% edge. This is not a value bet unless you have edge on every single leg."
-5. **In-play detection:** If event is currently live:
+6. **In-play detection:** If event is currently live:
    - Flag: "**In-play warning:** Live betting margins are typically 8-15% vs 3-5% pre-match. Your edge must be substantially larger to overcome this. Is this a pre-analyzed spot or a reactive impulse?"
-6. Structure/thesis discussion (keep factual, short)
-7. Log to `journal/reflections/YYYY-MM-DD-*.md`
+7. Structure/thesis discussion (keep factual, short)
+8. Log: substantive research → `research/`; lighter notes → `journal/reflections/YYYY-MM-DD-*.md`
 
 #### BET_REQUEST
 1. Check risk state. If RED → intervention.
@@ -185,6 +188,13 @@ Each type has a **mandatory output sequence**:
 2. Do **not** label as permission-seeking.
 3. If selection + odds are in the message → still add **Edge analysis** block.
 4. Log to `journal/reflections/` if the observation is worth preserving.
+
+#### RESEARCH
+1. Read `research/_summary.md` and any matching `research/YYYY-MM-DD-*.md` for the event or league.
+2. If event named and odds matter → run `python bookmaker/odds.py` for implied probabilities and best price.
+3. Deliver: **sources / factors**, **uncertainty**, **fair probability (point or range)**, **vs implied**, **edge**, **what would change the estimate**.
+4. If the session produces a durable thesis or numeric estimate → new or updated file under `research/` using `research/TEMPLATE.md`, then one-line entry in `research/_summary.md`.
+5. Do **not** present cold picks; tie numbers to stated assumptions.
 
 ### E. Post-response logging (every substantive message)
 

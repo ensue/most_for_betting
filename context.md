@@ -68,6 +68,16 @@ _Updated by AI after each betting conversation._
 
 _Run the tools after setting your parameters in `rules.md` to see projections._
 
+## Research & probability
+
+| Item | Location |
+|------|----------|
+| Structured research notes | `research/` (use `research/TEMPLATE.md`) |
+| Rolling research index | `research/_summary.md` |
+| Calibration (Brier, strike rate) | `journal/bets/_summary.md` |
+
+The AI should treat substantive event analysis as **research + estimation**: sources, fair probability vs implied, edge, uncertainty — then log to `research/` when the work is more than a one-line lean.
+
 ## Reminders for AI
 
 - Read `profile.md` when warning signs appear
